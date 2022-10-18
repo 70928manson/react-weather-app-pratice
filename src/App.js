@@ -3,9 +3,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import styled from '@emotion/styled';
 import { ThemeProvider } from '@emotion/react';
 
-import { getMoment } from './utils/helper';
+import { findLocation, getMoment } from './utils/helper';
 
 import WeatherCard from './views/WeatherCard';
+import WeatherSetting from './views/WeatherSetting';
 
 import useWeatherAPI from './hooks/useWeatherAPI';
 
@@ -37,34 +38,62 @@ const Container = styled.div`
   justify-content: center;
 `;
 
-const LOCATION_NAME = '臺北';
-const LOCATION_NAME_FORECAST = '臺北市';
-
 const App = () => {
-  const [weatherElement, fetchData] = useWeatherAPI({
-    locationName: LOCATION_NAME,
-    cityName: LOCATION_NAME_FORECAST,
-  });
-
   const [currentTheme, setCurrentTheme] = useState('light');
+
+  // 從 localStorage 取出先前保存的地區，若沒有保存過則給予預設值臺北市
+  const storageCity = localStorage.getItem('cityName') || '臺北市';
+
+  const [currentCity, setCurrentCity] = useState(storageCity);
+  const currentLocation = useMemo(() => findLocation(currentCity), [
+    currentCity,
+  ]);
+  const { cityName, locationName, sunriseCityName } = currentLocation;
 
   //moment 白天或晚上
   const moment = useMemo(() => 
-    getMoment(LOCATION_NAME_FORECAST), []
+    getMoment(sunriseCityName), [sunriseCityName]
   );
 
   useEffect(() => {
     setCurrentTheme(moment === 'day' ? 'light' : 'dark');
   }, [moment])  // dependencies 只有當 moment 有改變時，才會再次執行樣式主題的更換
 
+  const [weatherElement, fetchData] = useWeatherAPI({
+    locationName,
+    cityName,
+  });
+
+  const [currentPage, setCurrentPage] = useState('WeatherCard');
+  const handleCurrentPageChange = (currentPage) => {
+    setCurrentPage(currentPage);
+  }
+
+  const handleCurrentCityChange = (currentCity) => {
+    setCurrentCity(currentCity);
+  }
+
 
   return (
     <ThemeProvider theme={theme[currentTheme]}>
       <Container>
-        <WeatherCard 
-          weatherElement={weatherElement}
-          moment={moment}
-          fetchData={fetchData}/>
+        {/*  利用條件轉譯的方式決定要呈現哪個元件  */}
+        {currentPage === 'WeatherCard' && (
+          <WeatherCard 
+            cityName={cityName}
+            weatherElement={weatherElement}
+            moment={moment}
+            fetchData={fetchData}
+            handleCurrentPageChange={handleCurrentPageChange}
+          />
+        )}
+
+        {currentPage === 'WeatherSetting' && (
+          <WeatherSetting
+            cityName={cityName} 
+            handleCurrentCityChange={handleCurrentCityChange}
+            handleCurrentPageChange={handleCurrentPageChange} />
+        )}
       </Container>
     </ThemeProvider>
   );
